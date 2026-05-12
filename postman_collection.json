@@ -1,0 +1,1009 @@
+{
+  "info": {
+    "_postman_id": "sanrio-coffee-api-collection",
+    "name": "SanrioCoffee API",
+    "description": "三麗鷗咖啡線上點餐平台 API 測試 Collection\n\n**建議測試順序：**\n1. Auth → Register Admin → Login Admin（存 admin_token）\n2. Auth → Register Consumer → Login Consumer（存 token）\n3. [Admin] 分類 → 建立分類（存 category_id）\n4. [Admin] 商品 → 建立商品 → 新增客製化選項\n5. [Consumer] 購物車 → 加入商品\n6. [Admin] 優惠券 → 建立優惠券\n7. [Consumer] 點餐 → 驗證優惠券 → 建立訂單（存 order_id）\n8. [付款] 發起付款 → 模擬成功回調\n9. [Admin] 訂單管理 → 推進狀態\n10. [Consumer] 點數 → 查看點數歷程",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",     "value": "http://localhost:8080", "type": "string" },
+    { "key": "admin_token",  "value": "", "type": "string" },
+    { "key": "token",        "value": "", "type": "string", "description": "Consumer token，由 Login Consumer 自動填入" },
+    { "key": "category_id",  "value": "1", "type": "string" },
+    { "key": "product_id",   "value": "1", "type": "string" },
+    { "key": "option_id",    "value": "1", "type": "string" },
+    { "key": "cart_item_id", "value": "1", "type": "string" },
+    { "key": "order_id",     "value": "1", "type": "string" },
+    { "key": "transaction_id","value": "", "type": "string" },
+    { "key": "coupon_id",    "value": "1", "type": "string" },
+    { "key": "coupon_code",  "value": "WELCOME10", "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "Auth",
+      "description": "註冊、登入、查看當前使用者。Login 會自動將 token 存入 collection variable。",
+      "item": [
+        {
+          "name": "Register (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api","v1","auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"sanrio_admin\",\n  \"email\": \"admin@sanriocoffee.com\",\n  \"password\": \"password123\",\n  \"phone\": \"0912345678\",\n  \"role\": \"admin\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register (Consumer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api","v1","auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"kitty_fan\",\n  \"email\": \"kitty@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"0987654321\",\n  \"role\": \"consumer\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('admin_token', json.data.token);",
+                  "    console.log('[Admin] token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@sanriocoffee.com\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Consumer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('token', json.data.token);",
+                  "    console.log('[Consumer] token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"kitty@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Me (當前使用者)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/me", "host": ["{{base_url}}"], "path": ["api","v1","me"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[公開] 商品目錄",
+      "description": "不需要 token 的公開查詢端點。",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v1/categories", "host": ["{{base_url}}"], "path": ["api","v1","categories"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List Products (全部)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/products",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","products"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Products (上架 + 依分類)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/products?available=true&category_id={{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","products"],
+              "query": [
+                { "key": "available", "value": "true" },
+                { "key": "category_id", "value": "{{category_id}}" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product Detail",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product Customizations",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/customizations", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","customizations"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Admin] 分類管理",
+      "description": "需要 admin_token。",
+      "item": [
+        {
+          "name": "Create Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('category_id', String(json.data.id));",
+                  "    console.log('category_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/categories", "host": ["{{base_url}}"], "path": ["api","v1","categories"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"特調飲品\",\n  \"description\": \"三麗鷗聯名限定飲品系列\",\n  \"sort_order\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/categories/{{category_id}}", "host": ["{{base_url}}"], "path": ["api","v1","categories","{{category_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"限定特調\",\n  \"sort_order\": 2,\n  \"is_active\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/categories/{{category_id}}", "host": ["{{base_url}}"], "path": ["api","v1","categories","{{category_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Admin] 商品管理",
+      "description": "需要 admin_token。建立商品後可新增客製化選項（杯型/冰量/甜度/加料）。",
+      "item": [
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('product_id', String(json.data.id));",
+                  "    console.log('product_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products", "host": ["{{base_url}}"], "path": ["api","v1","products"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": {{category_id}},\n  \"name\": \"Hello Kitty 草莓拿鐵\",\n  \"description\": \"以草莓糖漿打造的粉紅色系拿鐵，附Hello Kitty造型拉花\",\n  \"price\": 120,\n  \"image_url\": \"\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 130,\n  \"description\": \"以草莓糖漿打造的粉紅色系拿鐵，附Hello Kitty造型拉花（更新版）\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Availability: 下架",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/availability", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","availability"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Availability: 上架",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/availability", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","availability"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Customization: 杯型 (size)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('option_id', String(json.data.id));",
+                  "    console.log('option_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/customizations", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","customizations"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"option_type\": \"size\",\n  \"name\": \"大杯\",\n  \"price_delta\": 20,\n  \"sort_order\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Customization: 冰量 (ice)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/customizations", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","customizations"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"option_type\": \"ice\",\n  \"name\": \"少冰\",\n  \"price_delta\": 0,\n  \"sort_order\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Customization: 甜度 (sugar)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/customizations", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","customizations"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"option_type\": \"sugar\",\n  \"name\": \"半糖\",\n  \"price_delta\": 0,\n  \"sort_order\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Customization: 加料 (addon)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/customizations", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","customizations"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"option_type\": \"addon\",\n  \"name\": \"燕麥奶\",\n  \"price_delta\": 30,\n  \"sort_order\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customization",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}/customizations/{{option_id}}", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}","customizations","{{option_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Product Image (form-data)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/products/upload", "host": ["{{base_url}}"], "path": ["api","v1","products","upload"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "image", "type": "file", "src": "", "description": "選擇 jpg/png/webp 圖片，上限 5MB" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{product_id}}", "host": ["{{base_url}}"], "path": ["api","v1","products","{{product_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Consumer] 購物車",
+      "description": "需要 consumer token（{{token}}）。加入商品時可附上客製化選項陣列。",
+      "item": [
+        {
+          "name": "Add Item to Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('cart_item_id', String(json.data.id));",
+                  "    console.log('cart_item_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/cart/items", "host": ["{{base_url}}"], "path": ["api","v1","cart","items"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": {{product_id}},\n  \"quantity\": 2,\n  \"customizations\": [\n    { \"option_type\": \"size\",  \"name\": \"大杯\",  \"price_delta\": 20 },\n    { \"option_type\": \"ice\",   \"name\": \"少冰\",  \"price_delta\": 0  },\n    { \"option_type\": \"sugar\", \"name\": \"半糖\",  \"price_delta\": 0  },\n    { \"option_type\": \"addon\", \"name\": \"燕麥奶\",\"price_delta\": 30 }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Item (無客製化)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/cart/items", "host": ["{{base_url}}"], "path": ["api","v1","cart","items"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": {{product_id}},\n  \"quantity\": 1,\n  \"customizations\": []\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/cart", "host": ["{{base_url}}"], "path": ["api","v1","cart"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/cart/items/{{cart_item_id}}", "host": ["{{base_url}}"], "path": ["api","v1","cart","items","{{cart_item_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3,\n  \"customizations\": [\n    { \"option_type\": \"size\", \"name\": \"大杯\", \"price_delta\": 20 }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Cart Item",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/cart/items/{{cart_item_id}}", "host": ["{{base_url}}"], "path": ["api","v1","cart","items","{{cart_item_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/cart", "host": ["{{base_url}}"], "path": ["api","v1","cart"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Consumer] 點餐下單",
+      "description": "建立訂單會在單一事務中：鎖優惠券 → 扣點數 → 建訂單 → 建明細 → 入點數 → 清購物車。",
+      "item": [
+        {
+          "name": "Validate Coupon（預覽折扣，不扣次數）",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/coupons/validate", "host": ["{{base_url}}"], "path": ["api","v1","coupons","validate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{coupon_code}}\",\n  \"order_amount\": 500\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order（無優惠）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('order_id', String(json.data.id));",
+                  "    console.log('order_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api","v1","orders"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"請幫我多附一根吸管，謝謝～\",\n  \"pickup_time\": null\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order（套用優惠券）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('order_id', String(json.data.id));",
+                  "    console.log('order_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api","v1","orders"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coupon_code\": \"{{coupon_code}}\",\n  \"points_to_redeem\": 0,\n  \"note\": \"套用優惠券測試\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order（折抵點數）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('order_id', String(json.data.id));",
+                  "    console.log('order_id saved:', json.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api","v1","orders"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points_to_redeem\": 50,\n  \"note\": \"點數折抵 50 元測試\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}", "host": ["{{base_url}}"], "path": ["api","v1","orders","{{order_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List My Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api","v1","orders"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Order（只有 pending 可取消）",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}/cancel", "host": ["{{base_url}}"], "path": ["api","v1","orders","{{order_id}}","cancel"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[付款] 假金流",
+      "description": "Initiate 建立付款記錄並產生假 transaction_id。Callback 模擬金流回調（90% 隨機成功；force_result 可指定結果）。",
+      "item": [
+        {
+          "name": "Initiate Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.transaction_id) {",
+                  "    pm.collectionVariables.set('transaction_id', json.data.transaction_id);",
+                  "    console.log('transaction_id saved:', json.data.transaction_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/payments/initiate", "host": ["{{base_url}}"], "path": ["api","v1","payments","initiate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": {{order_id}},\n  \"method\": \"credit_card\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback: Force Success",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/payments/callback", "host": ["{{base_url}}"], "path": ["api","v1","payments","callback"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\",\n  \"force_result\": \"success\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback: Force Failed",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/payments/callback", "host": ["{{base_url}}"], "path": ["api","v1","payments","callback"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\",\n  \"force_result\": \"failed\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback: Random (90% 成功)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/payments/callback", "host": ["{{base_url}}"], "path": ["api","v1","payments","callback"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction_id\": \"{{transaction_id}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Callback: via Query Param (GET 模擬 webhook)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/callback?transaction_id={{transaction_id}}&force_result=success",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","payments","callback"],
+              "query": [
+                { "key": "transaction_id", "value": "{{transaction_id}}" },
+                { "key": "force_result",   "value": "success" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/payments/{{order_id}}/status", "host": ["{{base_url}}"], "path": ["api","v1","payments","{{order_id}}","status"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Admin] 訂單管理",
+      "description": "需要 admin_token。狀態流轉：pending → paid（由付款觸發）→ preparing → ready → completed。",
+      "item": [
+        {
+          "name": "List All Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api","v1","orders"] }
+          },
+          "response": []
+        },
+        {
+          "name": "List Orders by Status (paid)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders?status=paid",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","orders"],
+              "query": [{ "key": "status", "value": "paid" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status → preparing",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}/status", "host": ["{{base_url}}"], "path": ["api","v1","orders","{{order_id}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"preparing\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status → ready",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}/status", "host": ["{{base_url}}"], "path": ["api","v1","orders","{{order_id}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ready\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status → completed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/orders/{{order_id}}/status", "host": ["{{base_url}}"], "path": ["api","v1","orders","{{order_id}}","status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Admin] 優惠券管理",
+      "description": "需要 admin_token。支援固定金額（fixed）與百分比（percentage）兩種折扣類型。",
+      "item": [
+        {
+          "name": "Create Coupon: 固定金額 (fixed)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "var now = new Date();",
+                  "var until = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);",
+                  "pm.variables.set('valid_from', now.toISOString());",
+                  "pm.variables.set('valid_until', until.toISOString());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('coupon_id', String(json.data.id));",
+                  "    pm.collectionVariables.set('coupon_code', json.data.code);",
+                  "    console.log('coupon_id saved:', json.data.id, '| code:', json.data.code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/coupons", "host": ["{{base_url}}"], "path": ["api","v1","coupons"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WELCOME10\",\n  \"name\": \"新會員優惠 折抵 NT$50\",\n  \"discount_type\": \"fixed\",\n  \"discount_value\": 50,\n  \"min_order_amount\": 200,\n  \"valid_from\": \"{{valid_from}}\",\n  \"valid_until\": \"{{valid_until}}\",\n  \"usage_limit\": 100\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Coupon: 百分比 (percentage)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "var now = new Date();",
+                  "var until = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);",
+                  "pm.variables.set('valid_from', now.toISOString());",
+                  "pm.variables.set('valid_until', until.toISOString());"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/coupons", "host": ["{{base_url}}"], "path": ["api","v1","coupons"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"KITTY85\",\n  \"name\": \"Hello Kitty 週年慶 85 折\",\n  \"discount_type\": \"percentage\",\n  \"discount_value\": 85,\n  \"min_order_amount\": 300,\n  \"valid_from\": \"{{valid_from}}\",\n  \"valid_until\": \"{{valid_until}}\",\n  \"usage_limit\": null\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Coupons",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/coupons", "host": ["{{base_url}}"], "path": ["api","v1","coupons"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Active: 停用",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/coupons/{{coupon_id}}", "host": ["{{base_url}}"], "path": ["api","v1","coupons","{{coupon_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Active: 啟用",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/coupons/{{coupon_id}}", "host": ["{{base_url}}"], "path": ["api","v1","coupons","{{coupon_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": true\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/coupons/{{coupon_id}}", "host": ["{{base_url}}"], "path": ["api","v1","coupons","{{coupon_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "[Consumer] 點數",
+      "description": "查看點數餘額與異動歷程（earn / redeem）。每消費 NT$10 獲得 1 點，1 點折抵 NT$1。",
+      "item": [
+        {
+          "name": "Get Points & History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/me/points", "host": ["{{base_url}}"], "path": ["api","v1","me","points"] }
+          },
+          "response": []
+        }
+      ]
+    }
+
+  ]
+}

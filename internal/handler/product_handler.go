@@ -1,0 +1,249 @@
+package handler
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"sanrio-coffee-api/internal/model"
+	"sanrio-coffee-api/internal/repository"
+	"sanrio-coffee-api/internal/service"
+	"sanrio-coffee-api/pkg/response"
+
+	"github.com/gin-gonic/gin"
+)
+
+type ProductHandler struct {
+	svc       *service.ProductService
+	uploadDir string
+}
+
+func NewProductHandler(svc *service.ProductService, uploadDir string) *ProductHandler {
+	return &ProductHandler{svc: svc, uploadDir: uploadDir}
+}
+
+func (h *ProductHandler) List(c *gin.Context) {
+	categoryIDStr := c.Query("category_id")
+	availableStr := c.DefaultQuery("available", "")
+
+	var categoryID int64
+	if categoryIDStr != "" {
+		id, err := strconv.ParseInt(categoryIDStr, 10, 64)
+		if err == nil {
+			categoryID = id
+		}
+	}
+
+	availableOnly := availableStr == "true"
+
+	products, err := h.svc.List(c.Request.Context(), categoryID, availableOnly)
+	if err != nil {
+		response.InternalError(c, "failed to list products")
+		return
+	}
+	response.Success(c, products)
+}
+
+func (h *ProductHandler) GetByID(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	product, err := h.svc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "product not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, product)
+}
+
+func (h *ProductHandler) Create(c *gin.Context) {
+	var req model.CreateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	product, err := h.svc.Create(c.Request.Context(), &req)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Created(c, product)
+}
+
+func (h *ProductHandler) Update(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	var req model.UpdateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	product, err := h.svc.Update(c.Request.Context(), id, &req)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "product not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, product)
+}
+
+func (h *ProductHandler) SetAvailability(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	var body struct {
+		IsAvailable bool `json:"is_available"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	product, err := h.svc.SetAvailability(c.Request.Context(), id, body.IsAvailable)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "product not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, product)
+}
+
+func (h *ProductHandler) Delete(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "product not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "deleted"})
+}
+
+func (h *ProductHandler) GetCustomizations(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	list, err := h.svc.GetCustomizations(c.Request.Context(), id)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, list)
+}
+
+func (h *ProductHandler) AddCustomization(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	var req model.CreateCustomizationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	custom, err := h.svc.AddCustomization(c.Request.Context(), id, &req)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Created(c, custom)
+}
+
+func (h *ProductHandler) DeleteCustomization(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+	optionID, err := strconv.ParseInt(c.Param("optionId"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid option id")
+		return
+	}
+
+	if err := h.svc.DeleteCustomization(c.Request.Context(), productID, optionID); err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "customization not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "deleted"})
+}
+
+func (h *ProductHandler) Upload(c *gin.Context) {
+	file, header, err := c.Request.FormFile("image")
+	if err != nil {
+		response.BadRequest(c, "image file required")
+		return
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
+	if !allowed[ext] {
+		response.BadRequest(c, "only jpg, png, webp allowed")
+		return
+	}
+
+	if header.Size > 5*1024*1024 {
+		response.BadRequest(c, "file size must be under 5MB")
+		return
+	}
+
+	// UnixNano 作為檔名避免同名衝突，不需要額外 UUID 套件。
+	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	dst := filepath.Join(h.uploadDir, filename)
+
+	out, err := os.Create(dst)
+	if err != nil {
+		response.InternalError(c, "failed to save file")
+		return
+	}
+	defer out.Close()
+	io.Copy(out, file) //nolint:errcheck
+
+	imageURL := fmt.Sprintf("/uploads/%s", filename)
+	c.JSON(http.StatusOK, gin.H{"url": imageURL})
+}
