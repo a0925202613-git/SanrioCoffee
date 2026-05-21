@@ -50,7 +50,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	userID := c.GetInt64("userID")
 	user, err := h.svc.GetMe(c.Request.Context(), userID)
 	if err != nil {
-		response.NotFound(c, "user not found")
+		response.NotFound(c, "user not found!")
 		return
 	}
 	response.Success(c, user)
