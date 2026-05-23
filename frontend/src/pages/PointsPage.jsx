@@ -8,31 +8,50 @@ export default function PointsPage() {
 
   useEffect(() => { api.get('/me/points').then(r => setData(r.data.data)); }, []);
 
-  if (!data) return <p>載入中...</p>;
+  if (!data) return <div className="page-wrap-sm"><p className="loading-text">載入中...</p></div>;
 
   return (
-    <div>
-      <h2>我的點數</h2>
-      <div style={{ background: '#8B4513', color: '#fff', borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 24 }}>
-        <p style={{ margin: 0, fontSize: 14 }}>目前點數</p>
-        <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 'bold' }}>{data.current_points}</p>
-        <p style={{ margin: '4px 0 0', fontSize: 13, opacity: .8 }}>每消費 NT$10 = 1 點，1 點 = 折抵 NT$1</p>
+    <div className="page-wrap-sm" style={{ maxWidth: 580 }}>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', marginBottom: 28 }}>我的點數</h2>
+
+      {/* Points card */}
+      <div style={{ background: 'var(--ink)', borderRadius: 16, padding: '36px 32px', textAlign: 'center', marginBottom: 28 }}>
+        <p style={{ fontSize: '.8125rem', color: 'rgba(240,237,232,.50)', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 12 }}>累積點數</p>
+        <p style={{ fontSize: '3.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-.03em', lineHeight: 1, marginBottom: 12 }}>
+          {data.current_points}
+        </p>
+        <p style={{ fontSize: '.8125rem', color: 'rgba(240,237,232,.40)' }}>每消費 NT$10 = 1 點 · 1 點 = NT$1</p>
       </div>
 
-      <h4>點數歷程</h4>
-      {(data.transactions || []).length === 0 ? <p style={{ color: '#888' }}>尚無紀錄</p> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {data.transactions.map(t => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #eee' }}>
+      {/* History */}
+      <h4 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 14, letterSpacing: '-.01em' }}>點數歷程</h4>
+
+      {(data.transactions || []).length === 0 ? (
+        <div className="empty-state card">
+          <div className="empty-state-icon">⭐</div>
+          <p className="empty-state-text">尚無點數紀錄</p>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {data.transactions.map((t, idx) => (
+            <div key={t.id} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '16px 22px',
+              borderBottom: idx < data.transactions.length - 1 ? '1px solid var(--line)' : 'none',
+            }}>
               <div>
-                <span style={{ color: t.type === 'earn' ? 'green' : '#e77' }}>{typeLabel[t.type]}</span>
-                <span style={{ marginLeft: 8, color: '#555', fontSize: 14 }}>{t.description}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '.875rem', fontWeight: 600, color: t.type === 'earn' ? 'var(--green)' : 'var(--red)', marginBottom: 2 }}>
+                  {t.type === 'earn' ? '▲' : '▼'} {typeLabel[t.type]}
+                </span>
+                <p style={{ fontSize: '.875rem', color: 'var(--ink-2)' }}>{t.description}</p>
               </div>
-              <div>
-                <strong style={{ color: t.type === 'earn' ? 'green' : '#e77' }}>
-                  {t.type === 'earn' ? '+' : '-'}{Math.abs(t.points_delta)} 點
-                </strong>
-                <span style={{ marginLeft: 8, color: '#aaa', fontSize: 13 }}>{new Date(t.created_at).toLocaleDateString('zh-TW')}</span>
+              <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 16 }}>
+                <p style={{ fontWeight: 800, fontSize: '1rem', color: t.type === 'earn' ? 'var(--green)' : 'var(--red)' }}>
+                  {t.type === 'earn' ? '+' : '-'}{Math.abs(t.points_delta)}
+                </p>
+                <p style={{ fontSize: '.75rem', color: 'var(--ink-3)' }}>
+                  {new Date(t.created_at).toLocaleDateString('zh-TW')}
+                </p>
               </div>
             </div>
           ))}

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { statusLabel } from '../theme';
 
-const statusLabel = { pending: '待付款', paid: '已付款', preparing: '準備中', ready: '待取餐', completed: '已完成', cancelled: '已取消' };
-const statusColor = { pending: '#f5a623', paid: '#4a90e2', preparing: '#7b68ee', ready: '#50c878', completed: '#888', cancelled: '#e55' };
+const badgeClass = { pending: 'badge-pending', paid: 'badge-paid', preparing: 'badge-preparing', ready: 'badge-ready', completed: 'badge-completed', cancelled: 'badge-cancelled' };
 
 export default function OrderHistoryPage() {
   const [orders, setOrders] = useState([]);
@@ -12,20 +12,33 @@ export default function OrderHistoryPage() {
   useEffect(() => { api.get('/orders').then(r => setOrders(r.data.data || [])); }, []);
 
   return (
-    <div>
-      <h2>我的訂單</h2>
-      {orders.length === 0 ? <p style={{ color: '#888' }}>目前沒有訂單</p> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="page-wrap-sm" style={{ maxWidth: 660 }}>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', marginBottom: 28 }}>我的訂單</h2>
+
+      {orders.length === 0 ? (
+        <div className="card empty-state">
+          <div className="empty-state-icon">📋</div>
+          <p className="empty-state-text">目前沒有訂單</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {orders.map(o => (
-            <div key={o.id} onClick={() => navigate(`/orders/${o.id}`)}
-              style={{ border: '1px solid #e0cfa9', borderRadius: 10, padding: 16, cursor: 'pointer', background: '#fafafa' }}>
+            <div key={o.id} className="card" style={{ cursor: 'pointer', padding: '18px 22px', transition: 'box-shadow 200ms' }}
+              onClick={() => navigate(`/orders/${o.id}`)}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--sh-md)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = 'var(--sh-sm)'}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span><strong>訂單 #{o.id}</strong></span>
-                <span style={{ background: statusColor[o.status], color: '#fff', padding: '2px 10px', borderRadius: 12, fontSize: 13 }}>{statusLabel[o.status]}</span>
+                <span style={{ fontWeight: 700, fontSize: '1rem' }}>訂單 #{o.id}</span>
+                <span className={`badge ${badgeClass[o.status] || 'badge-completed'}`}>{statusLabel[o.status]}</span>
               </div>
-              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', color: '#555' }}>
-                <span>NT$ {o.total_price?.toFixed(0) ?? 0}</span>
-                <span style={{ fontSize: 13 }}>{new Date(o.created_at).toLocaleDateString('zh-TW')}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: '1.125rem', fontWeight: 800, letterSpacing: '-.02em' }}>
+                  NT$ {o.total_price?.toFixed(0) ?? 0}
+                </span>
+                <span style={{ fontSize: '.8125rem', color: 'var(--ink-2)' }}>
+                  {new Date(o.created_at).toLocaleDateString('zh-TW')}
+                </span>
               </div>
             </div>
           ))}

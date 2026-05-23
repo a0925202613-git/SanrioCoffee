@@ -19,7 +19,7 @@ export default function CheckoutPage() {
 
   const validateCoupon = async () => {
     setError('');
-    if (!couponCode) return;
+    if (!couponCode.trim()) return;
     try {
       const res = await api.post('/coupons/validate', { code: couponCode, order_total: cart?.total_price || 0 });
       setCouponResult(res.data.data);
@@ -44,50 +44,84 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!cart) return <p>載入中...</p>;
+  if (!cart) return (
+    <div className="page-wrap-sm"><p className="loading-text">載入中...</p></div>
+  );
 
   return (
-    <div style={{ maxWidth: 500, margin: '0 auto' }}>
-      <h2>結帳</h2>
-      <div style={{ background: '#fdf8f2', padding: 16, borderRadius: 8, marginBottom: 20 }}>
-        <h4 style={{ margin: '0 0 10px' }}>訂單摘要 ({cart.total_items} 件)</h4>
+    <div className="page-wrap-sm">
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', marginBottom: 28 }}>結帳</h2>
+
+      {/* Order summary */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: '.75rem', fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-2)', marginBottom: 16 }}>
+          訂單摘要 · {cart.total_items} 件
+        </p>
         {(cart.items || []).map(item => (
-          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span>{item.product_name} x{item.quantity}</span>
-            <span>NT$ {item.subtotal?.toFixed(0) ?? 0}</span>
+          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '.875rem' }}>
+            <span>{item.product_name} × {item.quantity}</span>
+            <span style={{ fontWeight: 500 }}>NT$ {item.subtotal?.toFixed(0) ?? 0}</span>
           </div>
         ))}
-        <hr />
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>小計</span><span>NT$ {subtotal.toFixed(0)}</span></div>
-        {discount > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'green' }}><span>優惠券折扣</span><span>-NT$ {discount.toFixed(0)}</span></div>}
-        {pointsDiscount > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', color: 'green' }}><span>點數折抵</span><span>-NT$ {pointsDiscount}</span></div>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: 18, marginTop: 8 }}><span>應付金額</span><span>NT$ {total.toFixed(0)}</span></div>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label>優惠券代碼</label>
-        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-          <input value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="輸入折扣碼" style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #ccc' }} />
-          <button onClick={validateCoupon} style={{ padding: '8px 16px', background: '#8B4513', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>套用</button>
+        <hr className="divider" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <Row label="小計" val={`NT$ ${subtotal.toFixed(0)}`} sub />
+          {discount > 0    && <Row label="優惠券折扣" val={`-NT$ ${discount.toFixed(0)}`} green />}
+          {pointsDiscount > 0 && <Row label="點數折抵" val={`-NT$ ${pointsDiscount}`} green />}
+          <Row label="應付金額" val={`NT$ ${total.toFixed(0)}`} bold />
         </div>
-        {couponResult && <p style={{ color: 'green', margin: '4px 0' }}>折扣 NT$ {couponResult.discount_amount.toFixed(0)}（{couponResult.coupon.name}）</p>}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label>使用點數（現有 {myPoints} 點，1點=1元）</label>
-        <input type="number" min={0} max={myPoints} value={pointsToUse} onChange={e => setPointsToUse(Number(e.target.value))}
-          style={{ display: 'block', marginTop: 4, padding: 8, borderRadius: 6, border: '1px solid #ccc', width: 120 }} />
+      {/* Coupon */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <p style={{ fontWeight: 600, fontSize: '.9375rem', marginBottom: 12 }}>優惠券</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input className="field" value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="輸入折扣碼" style={{ flex: 1 }} />
+          <button onClick={validateCoupon} className="btn btn-outline" style={{ flexShrink: 0 }}>套用</button>
+        </div>
+        {couponResult && (
+          <p style={{ marginTop: 8, fontSize: '.875rem', color: 'var(--green)' }}>
+            已套用：{couponResult.coupon.name}（折 NT$ {couponResult.discount_amount.toFixed(0)}）
+          </p>
+        )}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label>備註</label>
-        <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="例：不加冰塊容器、外帶..." style={{ display: 'block', marginTop: 4, width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', boxSizing: 'border-box' }} />
+      {/* Points */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <p style={{ fontWeight: 600, fontSize: '.9375rem', marginBottom: 4 }}>使用點數</p>
+        <p style={{ fontSize: '.8125rem', color: 'var(--ink-2)', marginBottom: 12 }}>現有 {myPoints} 點，1 點 = NT$1</p>
+        <input
+          type="number" min={0} max={myPoints} className="field"
+          value={pointsToUse}
+          onChange={e => setPointsToUse(Number(e.target.value))}
+          style={{ width: 160 }}
+        />
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <button onClick={placeOrder} style={{ width: '100%', padding: 12, background: '#8B4513', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer' }}>
+      {/* Note */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p style={{ fontWeight: 600, fontSize: '.9375rem', marginBottom: 12 }}>備註</p>
+        <textarea className="field" value={note} onChange={e => setNote(e.target.value)}
+          rows={2} placeholder="例：不加冰塊、取餐備注..." />
+      </div>
+
+      {error && (
+        <p style={{ fontSize: '.875rem', color: 'var(--red)', background: '#FEF2F2', padding: '10px 14px', borderRadius: 8, marginBottom: 16 }}>
+          {error}
+        </p>
+      )}
+
+      <button onClick={placeOrder} className="btn btn-primary btn-full btn-lg">
         確認下單
       </button>
+    </div>
+  );
+}
+
+function Row({ label, val, sub, green, bold }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: bold ? '.9375rem' : '.875rem', fontWeight: bold ? 700 : 400, color: green ? 'var(--green)' : sub ? 'var(--ink-2)' : 'var(--ink)' }}>
+      <span>{label}</span><span>{val}</span>
     </div>
   );
 }
