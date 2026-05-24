@@ -46,7 +46,7 @@ func main() {
 	giftRepo := repository.NewGiftRepository(db)
 
 	// Services
-	authSvc := service.NewAuthService(userRepo, cfg.JWT.Secret, cfg.JWT.ExpireHours)
+	authSvc := service.NewAuthService(userRepo, redisClient, cfg.JWT.Secret, cfg.JWT.ExpireHours)
 	categorySvc := service.NewCategoryService(categoryRepo, redisClient)
 	productSvc := service.NewProductService(productRepo, redisClient)
 	cartSvc := service.NewCartService(cartRepo, productRepo)

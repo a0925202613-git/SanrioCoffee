@@ -27,6 +27,13 @@ func (r *UserRepository) Create(ctx context.Context, u *model.User, passwordHash
 	return scanUser(row)
 }
 
+func (r *UserRepository) UpdatePassword(ctx context.Context, id int64, passwordHash string) error {
+	query := `
+		UPDATE users SET password_hash = $1 WHERE id = $2`
+	_, err := r.db.Pool.Exec(ctx, query, passwordHash, id)
+	return err
+}
+
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, string, error) {
 	query := `SELECT id, username, email, password_hash, phone, role, points, created_at FROM users WHERE email = $1`
 	row := r.db.Pool.QueryRow(ctx, query, email)

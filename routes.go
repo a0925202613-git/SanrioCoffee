@@ -30,6 +30,9 @@ func RegisterRoutes(r *gin.Engine, jwtSecret string, h *Handlers) {
 	{
 		auth.POST("/register", h.Auth.Register)
 		auth.POST("/login", h.Auth.Login)
+		auth.POST("/forgot-password", h.Auth.ForgotPassword)
+		auth.POST("/reset-password", h.Auth.ResetPassword)
+
 	}
 
 	// Public read routes

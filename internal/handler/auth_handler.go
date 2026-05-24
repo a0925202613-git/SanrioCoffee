@@ -31,6 +31,36 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	response.Created(c, user)
 }
 
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req model.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.svc.ForgotPassword(c.Request.Context(), &req); err != nil {
+		response.Success(c, "If the email exists, a reset link has been sent.")
+		return
+	}
+
+	response.Success(c, "Reset link has been sent to your email.")
+}
+
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req model.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.svc.ResetPassword(c.Request.Context(), &req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, "Password has been reset successfully.")
+}
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 type User struct {
 	ID           int64     `json:"id"`
@@ -29,4 +31,13 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token string `json:"token"`
 	User  User   `json:"user"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email:"      binding:"required,email"`
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token"       binding:"required"`
+	NewPassword string `json:"password"    binding:"required,min=6"`
 }
