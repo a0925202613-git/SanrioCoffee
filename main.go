@@ -10,6 +10,7 @@ import (
 	"sanrio-coffee-api/internal/repository"
 	"sanrio-coffee-api/internal/service"
 	"sanrio-coffee-api/pkg/database"
+	"sanrio-coffee-api/pkg/email"
 	"sanrio-coffee-api/pkg/logger"
 	redispkg "sanrio-coffee-api/pkg/redis"
 
@@ -34,6 +35,7 @@ func main() {
 	defer db.Close()
 
 	redisClient := redispkg.NewClient(cfg.Redis)
+	mailer := email.NewSendGridMailer(cfg.Email.ApiKey, cfg.Email.FromEmail)
 
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
@@ -46,7 +48,7 @@ func main() {
 	giftRepo := repository.NewGiftRepository(db)
 
 	// Services
-	authSvc := service.NewAuthService(userRepo, redisClient, cfg.JWT.Secret, cfg.JWT.ExpireHours)
+	authSvc := service.NewAuthService(userRepo, redisClient, mailer, cfg.JWT.Secret, cfg.JWT.ExpireHours)
 	categorySvc := service.NewCategoryService(categoryRepo, redisClient)
 	productSvc := service.NewProductService(productRepo, redisClient)
 	cartSvc := service.NewCartService(cartRepo, productRepo)

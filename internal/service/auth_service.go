@@ -11,6 +11,8 @@ import (
 	"sanrio-coffee-api/internal/model"
 	"sanrio-coffee-api/internal/repository"
 
+	"sanrio-coffee-api/pkg/email"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -19,14 +21,16 @@ import (
 type AuthService struct {
 	userRepo    *repository.UserRepository
 	rdb         *redis.Client
+	mailer      email.Mailer
 	jwtSecret   string
 	expireHours int
 }
 
-func NewAuthService(userRepo *repository.UserRepository, rdb *redis.Client, secret string, expireHours int) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, rdb *redis.Client, mailer email.Mailer, secret string, expireHours int) *AuthService {
 	return &AuthService{
 		userRepo:    userRepo,
 		rdb:         rdb,
+		mailer:      mailer,
 		jwtSecret:   secret,
 		expireHours: expireHours}
 }
@@ -71,7 +75,10 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req *model.ForgotPassw
 		return err
 	}
 
-	fmt.Printf("【發送重設密碼郵件】用戶 %s 您好，請點擊連結重設密碼，Token 為: %s\n", user.Username, token)
+	err = s.mailer.SendResetPasswordEmail(user.Email, user.Username, token)
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
 
 	return nil
 }

@@ -13,6 +13,12 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
+	Email    EmailConfig    `mapstructure:"email"`
+}
+
+type EmailConfig struct {
+	ApiKey    string `mapstructure:"api_key"`
+	FromEmail string `mapstructure:"from_email"`
 }
 
 type ServerConfig struct {

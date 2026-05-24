@@ -51,6 +51,32 @@
           "response": []
         },
         {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/forgot-password", "host": ["{{base_url}}"], "path": ["api","v1","auth","forgot-password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"kitty@example.com\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password (輸入Token重設密碼)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/reset-password", "host": ["{{base_url}}"], "path": ["api","v1","auth","reset-password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"請在此處貼上後端終端機印出的 Redis Token\",\n  \"password\": \"newPassword123\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Login (Admin)",
           "event": [
             {

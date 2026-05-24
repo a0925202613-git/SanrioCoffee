@@ -34,7 +34,7 @@ type LoginResponse struct {
 }
 
 type ForgotPasswordRequest struct {
-	Email string `json:"email:"      binding:"required,email"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type ResetPasswordRequest struct {
