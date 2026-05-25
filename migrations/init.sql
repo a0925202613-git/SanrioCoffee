@@ -40,13 +40,31 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- Product customization options (e.g. size, ice, sugar, add-ons)
-CREATE TABLE IF NOT EXISTS product_customizations (
+CREATE TABLE IF NOT EXISTS customization_groups (
     id          BIGSERIAL PRIMARY KEY,
-    product_id  BIGINT        NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    option_type VARCHAR(20)   NOT NULL CHECK (option_type IN ('size', 'ice', 'sugar', 'addon')),
-    name        VARCHAR(100)  NOT NULL,
+    name        VARCHAR(100) NOT NULL, 
+    option_type VARCHAR(20)  NOT NULL CHECK (option_type IN ('size', 'ice', 'sugar', 'addon', 'flavor'))
+);
+
+CREATE TABLE IF NOT EXISTS customization_items (
+    id          BIGSERIAL PRIMARY KEY,
+    group_id    BIGINT        NOT NULL REFERENCES customization_groups(id) ON DELETE CASCADE,
+    name        VARCHAR(100)  NOT NULL,        
     price_delta DECIMAL(10,2) NOT NULL DEFAULT 0,
     sort_order  INT           NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS product_customization_groups (
+    product_id  BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    group_id    BIGINT NOT NULL REFERENCES customization_groups(id) ON DELETE CASCADE,
+    PRIMARY KEY (product_id, group_id)
+);
+
+CREATE TABLE IF NOT EXISTS product_customization_restrictions (
+    product_id  BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    item_id     BIGINT NOT NULL REFERENCES customization_items(id) ON DELETE CASCADE,
+    is_disabled BOOLEAN NOT NULL DEFAULT true,
+    PRIMARY KEY (product_id, item_id)
 );
 
 -- Cart items (one row per unique product+customization combo per user)
@@ -142,9 +160,9 @@ CREATE INDEX IF NOT EXISTS idx_point_transactions_user ON point_transactions(use
 
 -- Seed data: default categories
 INSERT INTO categories (name, description, sort_order) VALUES
-    ('熱飲', '各式熱咖啡與熱茶', 1),
-    ('冷飲', '冰咖啡、冰茶與特調', 2),
-    ('茶飲', '精選茶類飲品', 3),
+    ('咖啡飲品', '精選現磨咖啡，可自由選擇冷飲或熱飲', 1),
+    ('茶飲或其他特調', '精選茶類與風味特調飲品', 2),
+    ('主食', '千層麵、燉飯', 3),
     ('輕食', '三明治、蛋糕與點心', 4)
 ON CONFLICT (name) DO NOTHING;
 
@@ -163,3 +181,4 @@ CREATE TABLE IF NOT EXISTS gifts (
 
 CREATE INDEX IF NOT EXISTS idx_gifts_code ON gifts(gift_code);
 CREATE INDEX IF NOT EXISTS idx_gifts_sender ON gifts(sender_id);
+CREATE INDEX IF NOT EXISTS idx_gifts_receiver ON gifts(receiver_id);

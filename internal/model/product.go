@@ -25,6 +25,7 @@ type ProductCustomization struct {
 	Name       string  `json:"name"`
 	PriceDelta float64 `json:"price_delta"`
 	SortOrder  int     `json:"sort_order"`
+	IsDisabled bool    `json:"is_disabled"`
 }
 
 type CreateProductRequest struct {
@@ -44,7 +45,7 @@ type UpdateProductRequest struct {
 }
 
 type CreateCustomizationRequest struct {
-	OptionType string  `json:"option_type" binding:"required,oneof=size ice sugar addon"`
+	OptionType string  `json:"option_type" binding:"required,oneof=size ice sugar addon flavor"`
 	Name       string  `json:"name"        binding:"required,min=1,max=100"`
 	PriceDelta float64 `json:"price_delta"`
 	SortOrder  int     `json:"sort_order"`

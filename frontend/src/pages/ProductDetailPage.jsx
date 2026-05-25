@@ -28,7 +28,11 @@ export default function ProductDetailPage() {
     groups[c.option_type].push(c);
   });
 
-  const typeLabel = { size: '杯型', ice: '冰量', sugar: '甜度', addon: '加料' };
+  // 💡 這裡有對照表，儲存成功後就不會再出現英文大寫 FLAVOR 了
+  const typeLabel = { size: '杯型', ice: '冰量', sugar: '甜度', addon: '加料', flavor: '更換風味' };
+  
+  // 💡 這裡控制黃金排序：杯型 ➡️ 甜度 ➡️ 冰量 ➡️ 加料 ➡️ 更換風味
+  const groupOrder = ['size', 'sugar', 'ice', 'addon', 'flavor'];
 
   const selectOption = (type, option) => {
     setSelectedOptions(prev => {
@@ -93,33 +97,51 @@ export default function ProductDetailPage() {
       )}
 
       {/* Customizations */}
-      {Object.entries(groups).map(([type, options]) => (
-        <div key={type} style={{ marginBottom: 22 }}>
-          <p style={{ fontWeight: 600, fontSize: '.875rem', letterSpacing: '.03em', textTransform: 'uppercase', color: 'var(--ink-2)', marginBottom: 10 }}>
-            {typeLabel[type] || type}
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {options.map(o => {
-              const sel = isSelected(type, o);
-              return (
-                <button key={o.id} onClick={() => selectOption(type, o)} style={{
-                  padding: '8px 16px',
-                  borderRadius: 'var(--r-full)',
-                  border: sel ? '1.5px solid var(--ink)' : '1.5px solid var(--line)',
-                  background: sel ? 'var(--ink)' : 'var(--surface)',
-                  color: sel ? '#fff' : 'var(--ink)',
-                  cursor: 'pointer',
-                  fontSize: '.875rem',
-                  fontWeight: sel ? 600 : 400,
-                  transition: 'all 200ms',
-                }}>
-                  {o.name}{o.price_delta > 0 ? ` +${o.price_delta}` : ''}
-                </button>
-              );
-            })}
+      {groupOrder.map(type => {
+        const options = groups[type];
+        if (!options || options.length === 0) return null;
+
+        return (
+          <div key={type} style={{ marginBottom: 22 }}>
+            <p style={{ fontWeight: 600, fontSize: '.875rem', letterSpacing: '.03em', textTransform: 'uppercase', color: 'var(--ink-2)', marginBottom: 10 }}>
+              {typeLabel[type] || type}
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {options.map(o => {
+                const sel = isSelected(type, o);
+                return (
+                  <button 
+                    key={o.id} 
+                    onClick={() => selectOption(type, o)} 
+                    disabled={o.is_disabled}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 'var(--r-full)',
+                      border: sel ? '1.5px solid var(--ink)' : '1.5px solid var(--line)',
+                      background: sel ? 'var(--ink)' : 'var(--surface)',
+                      color: sel ? '#fff' : 'var(--ink)',
+                      cursor: 'pointer',
+                      fontSize: '.875rem',
+                      fontWeight: sel ? 600 : 400,
+                      transition: 'all 200ms',
+                      ...(o.is_disabled && {
+                        background: '#EFEBE5',
+                        color: 'var(--ink-3)',
+                        border: '1.5px solid var(--line)',
+                        cursor: 'not-allowed',
+                        pointerEvents: 'none',
+                        opacity: 0.5,
+                      })
+                    }}
+                  >
+                    {o.name}{o.price_delta > 0 ? ` +${o.price_delta}` : ''}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Quantity + total */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '20px 0', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', marginBottom: 24 }}>
