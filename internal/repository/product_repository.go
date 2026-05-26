@@ -288,6 +288,98 @@ func scanProduct(row pgx.Row) (*model.Product, error) {
 	return &p, nil
 }
 
+func (r *ProductRepository) ListAllGroups(ctx context.Context) ([]model.CustomizationGroup, error) {
+	rows, err := r.db.Pool.Query(ctx, `
+		SELECT g.id, g.name, g.option_type,
+		       COALESCE(i.id, 0), COALESCE(i.name, ''), COALESCE(i.price_delta, 0), COALESCE(i.sort_order, 0)
+		FROM customization_groups g
+		LEFT JOIN customization_items i ON g.id = i.group_id
+		ORDER BY g.id, i.sort_order
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groupMap := map[int64]*model.CustomizationGroup{}
+	order := []int64{}
+	for rows.Next() {
+		var gID int64
+		var gName, gType string
+		var iID int64
+		var iName string
+		var iPriceDelta float64
+		var iSortOrder int
+		if err := rows.Scan(&gID, &gName, &gType, &iID, &iName, &iPriceDelta, &iSortOrder); err != nil {
+			return nil, err
+		}
+		if _, ok := groupMap[gID]; !ok {
+			groupMap[gID] = &model.CustomizationGroup{ID: gID, Name: gName, OptionType: gType, Items: []model.CustomizationItem{}}
+			order = append(order, gID)
+		}
+		if iID != 0 {
+			groupMap[gID].Items = append(groupMap[gID].Items, model.CustomizationItem{
+				ID: iID, GroupID: gID, Name: iName, PriceDelta: iPriceDelta, SortOrder: iSortOrder,
+			})
+		}
+	}
+	result := make([]model.CustomizationGroup, 0, len(order))
+	for _, gID := range order {
+		result = append(result, *groupMap[gID])
+	}
+	return result, rows.Err()
+}
+
+func (r *ProductRepository) GetBoundGroupIDs(ctx context.Context, productID int64) ([]int64, error) {
+	rows, err := r.db.Pool.Query(ctx, `SELECT group_id FROM product_customization_groups WHERE product_id = $1`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if ids == nil {
+		ids = []int64{}
+	}
+	return ids, rows.Err()
+}
+
+func (r *ProductRepository) AddItemToGroup(ctx context.Context, groupID int64, req *model.CreateCustomizationItemRequest) (*model.CustomizationItem, error) {
+	var item model.CustomizationItem
+	err := r.db.Pool.QueryRow(ctx, `
+		INSERT INTO customization_items (group_id, name, price_delta, sort_order)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, group_id, name, price_delta, sort_order
+	`, groupID, req.Name, req.PriceDelta, req.SortOrder).Scan(
+		&item.ID, &item.GroupID, &item.Name, &item.PriceDelta, &item.SortOrder,
+	)
+	return &item, err
+}
+
+func (r *ProductRepository) DeleteItem(ctx context.Context, itemID int64) error {
+	result, err := r.db.Pool.Exec(ctx, `DELETE FROM customization_items WHERE id = $1`, itemID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *ProductRepository) UnbindGroup(ctx context.Context, productID, groupID int64) error {
+	_, err := r.db.Pool.Exec(ctx, `
+		DELETE FROM product_customization_groups WHERE product_id = $1 AND group_id = $2
+	`, productID, groupID)
+	return err
+}
+
 // BindCustomizationGroup 負責將商品與現有的客製化群組進行一鍵綁定
 func (r *ProductRepository) BindCustomizationGroup(ctx context.Context, productID, groupID int64) error {
 	query := `

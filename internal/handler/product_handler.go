@@ -283,6 +283,83 @@ func (h *ProductHandler) AddRestriction(c *gin.Context) {
 	})
 }
 
+func (h *ProductHandler) ListGroups(c *gin.Context) {
+	groups, err := h.svc.ListAllGroups(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, groups)
+}
+
+func (h *ProductHandler) GetBoundGroupIDs(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+	ids, err := h.svc.GetBoundGroupIDs(c.Request.Context(), productID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, ids)
+}
+
+func (h *ProductHandler) AddItemToGroup(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+	var req model.CreateCustomizationItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	item, err := h.svc.AddItemToGroup(c.Request.Context(), groupID, &req)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Created(c, item)
+}
+
+func (h *ProductHandler) DeleteItem(c *gin.Context) {
+	itemID, err := strconv.ParseInt(c.Param("itemId"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid item id")
+		return
+	}
+	if err := h.svc.DeleteItem(c.Request.Context(), itemID); err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "item not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "deleted"})
+}
+
+func (h *ProductHandler) UnbindGroup(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+	groupID, err := strconv.ParseInt(c.Param("groupId"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+	if err := h.svc.UnbindGroup(c.Request.Context(), productID, groupID); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "unbound"})
+}
+
 // BindGroup 負責接收 {"group_id": 10} 並直接與商品綁定
 func (h *ProductHandler) BindGroup(c *gin.Context) {
 	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)

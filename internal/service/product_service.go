@@ -164,6 +164,30 @@ func (s *ProductService) AddCustomizationRestriction(ctx context.Context, produc
 	return nil
 }
 
+func (s *ProductService) ListAllGroups(ctx context.Context) ([]model.CustomizationGroup, error) {
+	return s.repo.ListAllGroups(ctx)
+}
+
+func (s *ProductService) GetBoundGroupIDs(ctx context.Context, productID int64) ([]int64, error) {
+	return s.repo.GetBoundGroupIDs(ctx, productID)
+}
+
+func (s *ProductService) AddItemToGroup(ctx context.Context, groupID int64, req *model.CreateCustomizationItemRequest) (*model.CustomizationItem, error) {
+	return s.repo.AddItemToGroup(ctx, groupID, req)
+}
+
+func (s *ProductService) DeleteItem(ctx context.Context, itemID int64) error {
+	return s.repo.DeleteItem(ctx, itemID)
+}
+
+func (s *ProductService) UnbindGroup(ctx context.Context, productID, groupID int64) error {
+	if err := s.repo.UnbindGroup(ctx, productID, groupID); err != nil {
+		return err
+	}
+	s.invalidateProductCache(ctx, productID)
+	return nil
+}
+
 // BindCustomizationGroup 處理商品綁定現有群組，並清除 Redis 快取
 func (s *ProductService) BindCustomizationGroup(ctx context.Context, productID, groupID int64) error {
 	err := s.repo.BindCustomizationGroup(ctx, productID, groupID)

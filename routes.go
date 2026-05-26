@@ -73,8 +73,16 @@ func RegisterRoutes(r *gin.Engine, jwtSecret string, h *Handlers) {
 			adminProd.POST("/:id/customizations", h.Product.AddCustomization)
 			adminProd.POST("/:id/restrictions", h.Product.AddRestriction)
 			adminProd.POST("/:id/customization-groups", h.Product.BindGroup)
+			adminProd.GET("/:id/customization-groups", h.Product.GetBoundGroupIDs)
+			adminProd.DELETE("/:id/customization-groups/:groupId", h.Product.UnbindGroup)
 			adminProd.DELETE("/:id/customizations/:optionId", h.Product.DeleteCustomization)
 			adminProd.POST("/upload", h.Product.Upload)
+
+			adminGroups := authRequired.Group("/customization-groups")
+			adminGroups.Use(middleware.AdminOnly)
+			adminGroups.GET("", h.Product.ListGroups)
+			adminGroups.POST("/:id/items", h.Product.AddItemToGroup)
+			adminGroups.DELETE("/:id/items/:itemId", h.Product.DeleteItem)
 		}
 
 		// Cart (consumer)
