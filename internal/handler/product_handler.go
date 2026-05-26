@@ -58,7 +58,8 @@ func (h *ProductHandler) GetByID(c *gin.Context) {
 
 	product, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		// 💡 只要錯誤訊息包含 notfound，就直接安全降落 404，不准崩潰變 500
+		if strings.Contains(err.Error(), "notfound") {
 			response.NotFound(c, "product not found")
 			return
 		}
@@ -246,4 +247,143 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 
 	imageURL := fmt.Sprintf("/uploads/%s", filename)
 	c.JSON(http.StatusOK, gin.H{"url": imageURL})
+
+}
+
+// AddRestriction 負責接收管理員丟進來的禁用細項 ID
+func (h *ProductHandler) AddRestriction(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	var req struct {
+		ItemID     int64 `json:"item_id" binding:"required"`
+		IsDisabled bool  `json:"is_disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	// 💡 呼叫你已經寫好的 Service 方法
+	err = h.svc.AddCustomizationRestriction(ctx, productID, req.ItemID, req.IsDisabled)
+	if err != nil {
+		response.InternalError(c, fmt.Sprintf("設定限制失敗: %v", err))
+		return
+	}
+
+	response.Success(c, gin.H{
+		"product_id":  productID,
+		"item_id":     req.ItemID,
+		"is_disabled": req.IsDisabled,
+		"message":     "黑名單限制設定成功",
+	})
+}
+
+func (h *ProductHandler) ListGroups(c *gin.Context) {
+	groups, err := h.svc.ListAllGroups(c.Request.Context())
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, groups)
+}
+
+func (h *ProductHandler) GetBoundGroupIDs(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+	ids, err := h.svc.GetBoundGroupIDs(c.Request.Context(), productID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, ids)
+}
+
+func (h *ProductHandler) AddItemToGroup(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+	var req model.CreateCustomizationItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	item, err := h.svc.AddItemToGroup(c.Request.Context(), groupID, &req)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Created(c, item)
+}
+
+func (h *ProductHandler) DeleteItem(c *gin.Context) {
+	itemID, err := strconv.ParseInt(c.Param("itemId"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid item id")
+		return
+	}
+	if err := h.svc.DeleteItem(c.Request.Context(), itemID); err != nil {
+		if err == repository.ErrNotFound {
+			response.NotFound(c, "item not found")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "deleted"})
+}
+
+func (h *ProductHandler) UnbindGroup(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+	groupID, err := strconv.ParseInt(c.Param("groupId"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid group id")
+		return
+	}
+	if err := h.svc.UnbindGroup(c.Request.Context(), productID, groupID); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "unbound"})
+}
+
+// BindGroup 負責接收 {"group_id": 10} 並直接與商品綁定
+func (h *ProductHandler) BindGroup(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+
+	var req model.BindCustomizationGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	err = h.svc.BindCustomizationGroup(ctx, productID, req.GroupID)
+	if err != nil {
+		response.InternalError(c, fmt.Sprintf("綁定群組失敗: %v", err))
+		return
+	}
+
+	response.Success(c, gin.H{
+		"product_id": productID,
+		"group_id":   req.GroupID,
+		"message":    "群組一次綁定成功",
+	})
 }

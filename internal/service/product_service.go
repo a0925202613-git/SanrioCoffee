@@ -151,4 +151,50 @@ func (s *ProductService) invalidateListCache(ctx context.Context) {
 	if len(keys) > 0 {
 		s.redisClient.Del(ctx, keys...) //nolint:errcheck
 	}
+} // 💡 這裡原本少了一個關閉的大括號
+
+// AddCustomizationRestriction 負責設定黑名單限制，並在完成後清除 Redis 商品快取
+func (s *ProductService) AddCustomizationRestriction(ctx context.Context, productID, itemID int64, isDisabled bool) error {
+	err := s.repo.AddCustomizationRestriction(ctx, productID, itemID, isDisabled)
+	if err != nil {
+		return err
+	}
+	// 🧹 成功後自動清除 Redis 快取，確保前端拿到最新反灰狀態
+	s.invalidateProductCache(ctx, productID)
+	return nil
+}
+
+func (s *ProductService) ListAllGroups(ctx context.Context) ([]model.CustomizationGroup, error) {
+	return s.repo.ListAllGroups(ctx)
+}
+
+func (s *ProductService) GetBoundGroupIDs(ctx context.Context, productID int64) ([]int64, error) {
+	return s.repo.GetBoundGroupIDs(ctx, productID)
+}
+
+func (s *ProductService) AddItemToGroup(ctx context.Context, groupID int64, req *model.CreateCustomizationItemRequest) (*model.CustomizationItem, error) {
+	return s.repo.AddItemToGroup(ctx, groupID, req)
+}
+
+func (s *ProductService) DeleteItem(ctx context.Context, itemID int64) error {
+	return s.repo.DeleteItem(ctx, itemID)
+}
+
+func (s *ProductService) UnbindGroup(ctx context.Context, productID, groupID int64) error {
+	if err := s.repo.UnbindGroup(ctx, productID, groupID); err != nil {
+		return err
+	}
+	s.invalidateProductCache(ctx, productID)
+	return nil
+}
+
+// BindCustomizationGroup 處理商品綁定現有群組，並清除 Redis 快取
+func (s *ProductService) BindCustomizationGroup(ctx context.Context, productID, groupID int64) error {
+	err := s.repo.BindCustomizationGroup(ctx, productID, groupID)
+	if err != nil {
+		return err
+	}
+	// 🧹 清除快取，讓前端下一秒拿到的選單立刻多出這個群組
+	s.invalidateProductCache(ctx, productID)
+	return nil
 }

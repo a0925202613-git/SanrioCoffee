@@ -73,3 +73,9 @@ ON CONFLICT (product_id, group_id) DO NOTHING;
 INSERT INTO product_customization_restrictions (product_id, item_id, is_disabled) VALUES
 (4, 104, true)
 ON CONFLICT (product_id, item_id) DO NOTHING;
+
+-- 7. 修正 sequence：讓顯式 ID 插入後，下一筆 AUTO ID 不衝突
+SELECT setval(pg_get_serial_sequence('categories',          'id'), MAX(id)) FROM categories;
+SELECT setval(pg_get_serial_sequence('products',            'id'), MAX(id)) FROM products;
+SELECT setval(pg_get_serial_sequence('customization_groups','id'), MAX(id)) FROM customization_groups;
+SELECT setval(pg_get_serial_sequence('customization_items', 'id'), MAX(id)) FROM customization_items;

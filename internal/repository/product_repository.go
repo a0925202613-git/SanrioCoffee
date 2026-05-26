@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"sanrio-coffee-api/internal/model"
 	"sanrio-coffee-api/pkg/database"
@@ -70,19 +71,21 @@ func (r *ProductRepository) List(ctx context.Context, categoryID int64, availabl
 }
 
 func (r *ProductRepository) FindByID(ctx context.Context, id int64) (*model.Product, error) {
-	// 💡 加上 COALESCE 保護單一商品查詢
 	row := r.db.Pool.QueryRow(ctx,
 		`SELECT 
-            id, 
-            category_id, 
-            name, 
-            COALESCE(description, '') AS description, 
-            price, 
-            COALESCE(image_url, '') AS image_url, 
-            is_available, 
-            created_at 
-        FROM products WHERE id = $1`, id)
-	return scanProduct(row)
+			id, category_id, name, COALESCE(description, ''), price, COALESCE(image_url, ''), is_available, created_at 
+		FROM products WHERE id = $1`, id)
+
+	var p model.Product
+	err := row.Scan(&p.ID, &p.CategoryID, &p.Name, &p.Description, &p.Price, &p.ImageURL, &p.IsAvailable, &p.CreatedAt)
+	if err != nil {
+		// 💡 不管是哪種 ErrNoRows，只要找不到，一律強迫回傳找不到，不給 handler 噴 500 的機會
+		if err == pgx.ErrNoRows || strings.Contains(err.Error(), "no rows") {
+			return nil, fmt.Errorf("notfound")
+		}
+		return nil, err
+	}
+	return &p, nil
 }
 
 func (r *ProductRepository) Create(ctx context.Context, req *model.CreateProductRequest) (*model.Product, error) {
@@ -144,27 +147,24 @@ func (r *ProductRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *ProductRepository) ListCustomizations(ctx context.Context, productID int64) ([]model.ProductCustomization, error) {
+	// 🎯 修正核心：將 SELECT 裡的 $1 換成 pcg.product_id，讓 PostgreSQL 100% 確定它的型別就是 BIGINT
+	// 🎯 同時保持 JOIN 的聚焦，按鈕重複的問題與型別衝突一次完美解決！
 	query := `
-        SELECT 
-            ci.id, 
-            pcg.product_id, 
-            cg.option_type, 
-            ci.name, 
-            ci.price_delta, 
-            ci.sort_order,
-            COALESCE(pcr.is_disabled, false) AS is_disabled
-        FROM product_customization_groups pcg
-        JOIN customization_groups cg ON pcg.group_id = cg.id
-        JOIN customization_items ci ON cg.id = ci.group_id
-        LEFT JOIN product_customization_restrictions pcr 
-            ON pcr.product_id = pcg.product_id AND pcr.item_id = ci.id
-        WHERE pcg.product_id = $1
-        ORDER BY cg.option_type, ci.sort_order
-    `
-
-	// 💡 關鍵修正：將原本的 var list []model.ProductCustomization 改成這樣
-	// 確保即使沒撈到資料，JSON 也會吐出 [] 補償前端，絕對不吐出 null
-	list := []model.ProductCustomization{}
+		SELECT 
+			i.id, 
+			pcg.product_id, 
+			COALESCE(g.option_type, 'size') AS option_type, 
+			i.name, 
+			i.price_delta,
+			COALESCE(r.is_disabled, false) AS is_disabled
+		FROM product_customization_groups pcg
+		JOIN customization_groups g ON pcg.group_id = g.id
+		JOIN customization_items i ON g.id = i.group_id
+		LEFT JOIN product_customization_restrictions r 
+			ON r.product_id = pcg.product_id AND r.item_id = i.id
+		WHERE pcg.product_id = $1
+		ORDER BY g.id, i.sort_order;
+	`
 
 	rows, err := r.db.Pool.Query(ctx, query, productID)
 	if err != nil {
@@ -172,15 +172,31 @@ func (r *ProductRepository) ListCustomizations(ctx context.Context, productID in
 	}
 	defer rows.Close()
 
+	var list []model.ProductCustomization
 	for rows.Next() {
 		var c model.ProductCustomization
-		if err := rows.Scan(&c.ID, &c.ProductID, &c.OptionType, &c.Name, &c.PriceDelta, &c.SortOrder, &c.IsDisabled); err != nil {
+		err := rows.Scan(&c.ID, &c.ProductID, &c.OptionType, &c.Name, &c.PriceDelta, &c.IsDisabled)
+		if err != nil {
 			return nil, err
 		}
 		list = append(list, c)
 	}
+	if list == nil {
+		list = []model.ProductCustomization{}
+	}
+	return list, nil
+}
 
-	return list, rows.Err()
+// AddCustomizationRestriction 負責在資料庫限制表插入一筆禁用紀錄
+func (r *ProductRepository) AddCustomizationRestriction(ctx context.Context, productID, itemID int64, isDisabled bool) error {
+	query := `
+		INSERT INTO product_customization_restrictions (product_id, item_id, is_disabled)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (product_id, item_id) 
+		DO UPDATE SET is_disabled = EXCLUDED.is_disabled;
+	`
+	_, err := r.db.Pool.Exec(ctx, query, productID, itemID, isDisabled)
+	return err
 }
 
 func (r *ProductRepository) AddCustomization(ctx context.Context, productID int64, req *model.CreateCustomizationRequest) (*model.ProductCustomization, error) {
@@ -262,8 +278,115 @@ func (r *ProductRepository) DeleteCustomization(ctx context.Context, productID, 
 func scanProduct(row pgx.Row) (*model.Product, error) {
 	var p model.Product
 	err := row.Scan(&p.ID, &p.CategoryID, &p.Name, &p.Description, &p.Price, &p.ImageURL, &p.IsAvailable, &p.CreatedAt)
-	if err == pgx.ErrNoRows {
-		return nil, ErrNotFound
+	if err != nil {
+		// 💡 關鍵校正：與上方的 FindByID 保持完全相同的錯誤標籤輸出，徹底消除變數未定義或比對失敗的風險
+		if err == pgx.ErrNoRows || strings.Contains(err.Error(), "no rows") {
+			return nil, fmt.Errorf("notfound")
+		}
+		return nil, err
 	}
-	return &p, err
+	return &p, nil
+}
+
+func (r *ProductRepository) ListAllGroups(ctx context.Context) ([]model.CustomizationGroup, error) {
+	rows, err := r.db.Pool.Query(ctx, `
+		SELECT g.id, g.name, g.option_type,
+		       COALESCE(i.id, 0), COALESCE(i.name, ''), COALESCE(i.price_delta, 0), COALESCE(i.sort_order, 0)
+		FROM customization_groups g
+		LEFT JOIN customization_items i ON g.id = i.group_id
+		ORDER BY g.id, i.sort_order
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groupMap := map[int64]*model.CustomizationGroup{}
+	order := []int64{}
+	for rows.Next() {
+		var gID int64
+		var gName, gType string
+		var iID int64
+		var iName string
+		var iPriceDelta float64
+		var iSortOrder int
+		if err := rows.Scan(&gID, &gName, &gType, &iID, &iName, &iPriceDelta, &iSortOrder); err != nil {
+			return nil, err
+		}
+		if _, ok := groupMap[gID]; !ok {
+			groupMap[gID] = &model.CustomizationGroup{ID: gID, Name: gName, OptionType: gType, Items: []model.CustomizationItem{}}
+			order = append(order, gID)
+		}
+		if iID != 0 {
+			groupMap[gID].Items = append(groupMap[gID].Items, model.CustomizationItem{
+				ID: iID, GroupID: gID, Name: iName, PriceDelta: iPriceDelta, SortOrder: iSortOrder,
+			})
+		}
+	}
+	result := make([]model.CustomizationGroup, 0, len(order))
+	for _, gID := range order {
+		result = append(result, *groupMap[gID])
+	}
+	return result, rows.Err()
+}
+
+func (r *ProductRepository) GetBoundGroupIDs(ctx context.Context, productID int64) ([]int64, error) {
+	rows, err := r.db.Pool.Query(ctx, `SELECT group_id FROM product_customization_groups WHERE product_id = $1`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if ids == nil {
+		ids = []int64{}
+	}
+	return ids, rows.Err()
+}
+
+func (r *ProductRepository) AddItemToGroup(ctx context.Context, groupID int64, req *model.CreateCustomizationItemRequest) (*model.CustomizationItem, error) {
+	var item model.CustomizationItem
+	err := r.db.Pool.QueryRow(ctx, `
+		INSERT INTO customization_items (group_id, name, price_delta, sort_order)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, group_id, name, price_delta, sort_order
+	`, groupID, req.Name, req.PriceDelta, req.SortOrder).Scan(
+		&item.ID, &item.GroupID, &item.Name, &item.PriceDelta, &item.SortOrder,
+	)
+	return &item, err
+}
+
+func (r *ProductRepository) DeleteItem(ctx context.Context, itemID int64) error {
+	result, err := r.db.Pool.Exec(ctx, `DELETE FROM customization_items WHERE id = $1`, itemID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *ProductRepository) UnbindGroup(ctx context.Context, productID, groupID int64) error {
+	_, err := r.db.Pool.Exec(ctx, `
+		DELETE FROM product_customization_groups WHERE product_id = $1 AND group_id = $2
+	`, productID, groupID)
+	return err
+}
+
+// BindCustomizationGroup 負責將商品與現有的客製化群組進行一鍵綁定
+func (r *ProductRepository) BindCustomizationGroup(ctx context.Context, productID, groupID int64) error {
+	query := `
+		INSERT INTO product_customization_groups (product_id, group_id)
+		VALUES ($1, $2)
+		ON CONFLICT (product_id, group_id) DO NOTHING; -- 💡 防止重複綁定噴錯
+	`
+	_, err := r.db.Pool.Exec(ctx, query, productID, groupID)
+	return err
 }

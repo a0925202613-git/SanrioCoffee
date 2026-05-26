@@ -61,11 +61,15 @@ CREATE TABLE IF NOT EXISTS product_customization_groups (
 );
 
 CREATE TABLE IF NOT EXISTS product_customization_restrictions (
-    product_id  BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    item_id     BIGINT NOT NULL REFERENCES customization_items(id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL,
+    item_id BIGINT NOT NULL,
     is_disabled BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (product_id, item_id)
 );
+
+-- 💡 順手加上索引，未來查選單時速度會變得跟飛的一樣快！
+CREATE INDEX IF NOT EXISTS idx_product_restrictions_pid ON product_customization_restrictions(product_id);
 
 -- Cart items (one row per unique product+customization combo per user)
 CREATE TABLE IF NOT EXISTS cart_items (
