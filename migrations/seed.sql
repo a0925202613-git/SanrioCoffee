@@ -1,7 +1,3 @@
--- ═══════════════════════════════════════════════════
--- SANRIO COFFEE · 完整版測試資料種子 (seed.sql)
--- ═══════════════════════════════════════════════════
-
 -- 1. 確保基礎分類完整
 INSERT INTO categories (id, name, description, sort_order) VALUES
 (1, '咖啡飲品', '精選現磨咖啡，可自由選擇冷飲或熱飲', 1),
@@ -10,13 +6,13 @@ INSERT INTO categories (id, name, description, sort_order) VALUES
 (4, '輕食', '三明治、蛋糕與點心', 4)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. 寫入基本商品：美式咖啡 (ID: 1) 與 冰醇濃抹茶那堤 (ID: 4)
+-- 2. 寫入基本商品
 INSERT INTO products (id, category_id, name, description, price, image_url, is_available) VALUES
 (1, 1, '美式咖啡', '使用當季特選豆製作的濃縮咖啡，品味不同風味變化...', 120.00, 'https://images.unsplash.com/photo-1509042239860-f550ce710b93', true),
 (4, 2, '冰醇濃抹茶那堤 Iced Pure Matcha Latte', '使用精心臻選，品質優良的日本純抹茶，加入新鮮牛奶與原味糖漿製成。', 165.00, 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. 建立所有的客製化大群組 (對齊你的第 8 張圖)
+-- 3. 建立所有的客製化大群組 
 INSERT INTO customization_groups (id, name, option_type) VALUES 
 (10, '冰量與溫度', 'ice'),
 (11, '甜度選擇', 'sugar'),
@@ -25,7 +21,6 @@ INSERT INTO customization_groups (id, name, option_type) VALUES
 (14, '更換風味', 'flavor')
 ON CONFLICT (id) DO NOTHING;
 
--- 4. 塞入完全對齊你 pgAdmin 的 17 筆核心項目細項 (對齊你的第 9 張圖)
 -- 💡 冰量與溫度 (group_id: 10)
 INSERT INTO customization_items (id, group_id, name, price_delta, sort_order) VALUES
 (101, 10, '正常冰', 0.00, 1),
@@ -63,7 +58,7 @@ INSERT INTO customization_items (id, group_id, name, price_delta, sort_order) VA
 (503, 14, '香草風味糖漿', 15.00, 4)
 ON CONFLICT (id) DO NOTHING;
 
--- 5. 綁定商品與群組（連連看關係）
+-- 5. 綁定商品與群組
 INSERT INTO product_customization_groups (product_id, group_id) VALUES
 (1, 10), (1, 12),                          -- 美式咖啡：冰量、杯型
 (4, 10), (4, 11), (4, 12), (4, 13), (4, 14) -- 抹茶那堤：冰量、甜度、杯型、加料、風味
