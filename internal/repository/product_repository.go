@@ -287,3 +287,14 @@ func scanProduct(row pgx.Row) (*model.Product, error) {
 	}
 	return &p, nil
 }
+
+// BindCustomizationGroup 負責將商品與現有的客製化群組進行一鍵綁定
+func (r *ProductRepository) BindCustomizationGroup(ctx context.Context, productID, groupID int64) error {
+	query := `
+		INSERT INTO product_customization_groups (product_id, group_id)
+		VALUES ($1, $2)
+		ON CONFLICT (product_id, group_id) DO NOTHING; -- 💡 防止重複綁定噴錯
+	`
+	_, err := r.db.Pool.Exec(ctx, query, productID, groupID)
+	return err
+}

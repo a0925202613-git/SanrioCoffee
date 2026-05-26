@@ -282,3 +282,31 @@ func (h *ProductHandler) AddRestriction(c *gin.Context) {
 		"message":     "黑名單限制設定成功",
 	})
 }
+
+// BindGroup 負責接收 {"group_id": 10} 並直接與商品綁定
+func (h *ProductHandler) BindGroup(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid product id")
+		return
+	}
+
+	var req model.BindCustomizationGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	err = h.svc.BindCustomizationGroup(ctx, productID, req.GroupID)
+	if err != nil {
+		response.InternalError(c, fmt.Sprintf("綁定群組失敗: %v", err))
+		return
+	}
+
+	response.Success(c, gin.H{
+		"product_id": productID,
+		"group_id":   req.GroupID,
+		"message":    "群組一次綁定成功",
+	})
+}

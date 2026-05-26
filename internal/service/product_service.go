@@ -163,3 +163,14 @@ func (s *ProductService) AddCustomizationRestriction(ctx context.Context, produc
 	s.invalidateProductCache(ctx, productID)
 	return nil
 }
+
+// BindCustomizationGroup 處理商品綁定現有群組，並清除 Redis 快取
+func (s *ProductService) BindCustomizationGroup(ctx context.Context, productID, groupID int64) error {
+	err := s.repo.BindCustomizationGroup(ctx, productID, groupID)
+	if err != nil {
+		return err
+	}
+	// 🧹 清除快取，讓前端下一秒拿到的選單立刻多出這個群組
+	s.invalidateProductCache(ctx, productID)
+	return nil
+}

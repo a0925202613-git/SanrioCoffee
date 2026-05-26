@@ -28,6 +28,11 @@ type ProductCustomization struct {
 	IsDisabled bool    `json:"is_disabled"`
 }
 
+// BindCustomizationGroupRequest 用於直接綁定現有群組
+type BindCustomizationGroupRequest struct {
+	GroupID int64 `json:"group_id" binding:"required"`
+}
+
 type CreateProductRequest struct {
 	CategoryID  int64   `json:"category_id"  binding:"required"`
 	Name        string  `json:"name"         binding:"required,min=1,max=255"`
