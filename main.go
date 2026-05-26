@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -33,6 +34,28 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
+
+	// 1. 執行結構檔：蓋好空大樓（Table 與 Index）
+	if initSQL, err := os.ReadFile("migrations/init.sql"); err == nil {
+		log.Println("🏗️ 正在執行 migrations/init.sql 初始化資料庫結構...")
+		if _, err := db.Pool.Exec(context.Background(), string(initSQL)); err != nil {
+			log.Printf("⚠️ 執行 init.sql 失敗（可能部分結構已存在，請檢查）: %v", err)
+		}
+	} else {
+		log.Printf("⚠️ 找不到 migrations/init.sql，請確認檔案路徑是否正確: %v", err)
+	}
+
+	// 2. 執行種子檔：自動把 17 筆精美按鈕與客製化限制搬進去
+	if seedSQL, err := os.ReadFile("migrations/seed.sql"); err == nil {
+		log.Println("🌱 偵測到 seed.sql，正在自動植入三麗鷗咖啡廳測試商品與客製化細項...")
+		if _, err := db.Pool.Exec(context.Background(), string(seedSQL)); err != nil {
+			log.Printf("❌ 自動植入測試資料失敗（請檢查 SQL 語法或外鍵約束）: %v", err)
+		} else {
+			log.Println("✨ 恭喜！17 筆精美客製化細項與黑名單自動同步成功！")
+		}
+	} else {
+		log.Printf("⚠️ 找不到 migrations/seed.sql 檔案，跳過種子資料植入: %v", err)
+	}
 
 	redisClient := redispkg.NewClient(cfg.Redis)
 	mailer := email.NewSendGridMailer(cfg.Email.ApiKey, cfg.Email.FromEmail)
