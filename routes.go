@@ -71,6 +71,7 @@ func RegisterRoutes(r *gin.Engine, jwtSecret string, h *Handlers) {
 			adminProd.PATCH("/:id/availability", h.Product.SetAvailability)
 			adminProd.DELETE("/:id", h.Product.Delete)
 			adminProd.POST("/:id/customizations", h.Product.AddCustomization)
+			adminProd.POST("/:id/restrictions", h.Product.AddRestriction)
 			adminProd.DELETE("/:id/customizations/:optionId", h.Product.DeleteCustomization)
 			adminProd.POST("/upload", h.Product.Upload)
 		}

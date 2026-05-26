@@ -58,7 +58,8 @@ func (h *ProductHandler) GetByID(c *gin.Context) {
 
 	product, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		// 💡 只要錯誤訊息包含 notfound，就直接安全降落 404，不准崩潰變 500
+		if strings.Contains(err.Error(), "notfound") {
 			response.NotFound(c, "product not found")
 			return
 		}
@@ -246,4 +247,38 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 
 	imageURL := fmt.Sprintf("/uploads/%s", filename)
 	c.JSON(http.StatusOK, gin.H{"url": imageURL})
+
+}
+
+// AddRestriction 負責接收管理員丟進來的禁用細項 ID
+func (h *ProductHandler) AddRestriction(c *gin.Context) {
+	productID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid id")
+		return
+	}
+
+	var req struct {
+		ItemID     int64 `json:"item_id" binding:"required"`
+		IsDisabled bool  `json:"is_disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	// 💡 呼叫你已經寫好的 Service 方法
+	err = h.svc.AddCustomizationRestriction(ctx, productID, req.ItemID, req.IsDisabled)
+	if err != nil {
+		response.InternalError(c, fmt.Sprintf("設定限制失敗: %v", err))
+		return
+	}
+
+	response.Success(c, gin.H{
+		"product_id":  productID,
+		"item_id":     req.ItemID,
+		"is_disabled": req.IsDisabled,
+		"message":     "黑名單限制設定成功",
+	})
 }

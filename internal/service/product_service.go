@@ -151,4 +151,15 @@ func (s *ProductService) invalidateListCache(ctx context.Context) {
 	if len(keys) > 0 {
 		s.redisClient.Del(ctx, keys...) //nolint:errcheck
 	}
+} // 💡 這裡原本少了一個關閉的大括號
+
+// AddCustomizationRestriction 負責設定黑名單限制，並在完成後清除 Redis 商品快取
+func (s *ProductService) AddCustomizationRestriction(ctx context.Context, productID, itemID int64, isDisabled bool) error {
+	err := s.repo.AddCustomizationRestriction(ctx, productID, itemID, isDisabled)
+	if err != nil {
+		return err
+	}
+	// 🧹 成功後自動清除 Redis 快取，確保前端拿到最新反灰狀態
+	s.invalidateProductCache(ctx, productID)
+	return nil
 }
