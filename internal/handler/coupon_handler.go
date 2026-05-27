@@ -50,7 +50,14 @@ func (h *CouponHandler) Validate(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.Validate(c.Request.Context(), &req)
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		response.BadRequest(c, "user unauthorized")
+		return
+	}
+	userID := userIDVal.(int64)
+
+	result, err := h.svc.Validate(c.Request.Context(), userID, &req)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			response.NotFound(c, "coupon not found")
@@ -105,4 +112,20 @@ func (h *CouponHandler) Delete(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"message": "deleted"})
+}
+
+func (h *CouponHandler) GetMyCoupons(c *gin.Context) {
+	userIDVal, exists := c.Get("userId")
+	if !exists {
+		response.BadRequest(c, "user unauthorized")
+		return
+	}
+	userID := userIDVal.(int64)
+
+	coupons, err := h.svc.GetMyCoupons(c.Request.Context(), userID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, coupons)
 }

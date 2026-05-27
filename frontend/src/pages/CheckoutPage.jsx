@@ -6,6 +6,7 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState(null);
   const [couponCode, setCouponCode] = useState('');
   const [couponResult, setCouponResult] = useState(null);
+  const [myCoupons, setMyCoupons] = useState([]); 
   const [pointsToUse, setPointsToUse] = useState(0);
   const [myPoints, setMyPoints] = useState(0);
   const [note, setNote] = useState('');
@@ -15,18 +16,31 @@ export default function CheckoutPage() {
   useEffect(() => {
     api.get('/cart').then(r => setCart(r.data.data));
     api.get('/me/points').then(r => setMyPoints(r.data.data?.current_points || 0));
+    api.get('/coupons/my')
+      .then(r => setMyCoupons(r.data.data || []))
+      .catch(err => console.error("無法取得個人優惠券:", err));
   }, []);
 
-  const validateCoupon = async () => {
+  const validateCoupon = async (codeToValidate = couponCode) => {
     setError('');
-    if (!couponCode.trim()) return;
+    const targetCode = typeof codeToValidate === 'string' ? codeToValidate.trim() : couponCode.trim();
+    if (!targetCode) return;
+    
     try {
-      const res = await api.post('/coupons/validate', { code: couponCode, order_total: cart?.total_price || 0 });
+      const res = await api.post('/coupons/validate', { 
+        code: targetCode, 
+        order_total: cart?.total_price || 0 
+      });
       setCouponResult(res.data.data);
     } catch (e) {
       setCouponResult(null);
       setError(e.response?.data?.message || '優惠券無效');
     }
+  };
+
+  const handleSelectCoupon = (code) => {
+    setCouponCode(code);
+    validateCoupon(code);
   };
 
   const subtotal = cart?.total_price || 0;
@@ -77,10 +91,42 @@ export default function CheckoutPage() {
         <p style={{ fontWeight: 600, fontSize: '.9375rem', marginBottom: 12 }}>優惠券</p>
         <div style={{ display: 'flex', gap: 8 }}>
           <input className="field" value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="輸入折扣碼" style={{ flex: 1 }} />
-          <button onClick={validateCoupon} className="btn btn-outline" style={{ flexShrink: 0 }}>套用</button>
+          <button onClick={() => validateCoupon(couponCode)} className="btn btn-outline" style={{ flexShrink: 0 }}>套用</button>
         </div>
+        
+        {/* 💡 新增：動態渲染「我的可用優惠券清單」 */}
+        {myCoupons.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontSize: '.8125rem', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 6 }}>
+              您的可用優惠券 (點擊直接套用)：
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {myCoupons.map(cp => (
+                <span
+                  key={cp.id}
+                  onClick={() => handleSelectCoupon(cp.code)}
+                  style={{
+                    fontSize: '.75rem',
+                    padding: '4px 10px',
+                    background: '#F3F4F6',
+                    border: '1px dashed #D1D5DB',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    color: '#374151',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = '#E5E7EB'}
+                  onMouseLeave={(e) => e.target.style.background = '#F3F4F6'}
+                >
+                  🎫 {cp.code} <span style={{ color: 'var(--ink-2)' }}>({cp.name})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {couponResult && (
-          <p style={{ marginTop: 8, fontSize: '.875rem', color: 'var(--green)' }}>
+          <p style={{ marginTop: 12, fontSize: '.875rem', color: 'var(--green)', fontWeight: 500 }}>
             已套用：{couponResult.coupon.name}（折 NT$ {couponResult.discount_amount.toFixed(0)}）
           </p>
         )}
