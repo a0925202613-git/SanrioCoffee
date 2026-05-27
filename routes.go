@@ -117,6 +117,7 @@ func RegisterRoutes(r *gin.Engine, jwtSecret string, h *Handlers) {
 		coupons := authRequired.Group("/coupons")
 		{
 			coupons.POST("/validate", h.Coupon.Validate)
+			coupons.GET("/my", h.Coupon.GetMyCoupons)
 		}
 		adminCoupons := authRequired.Group("/coupons")
 		adminCoupons.Use(middleware.AdminOnly)

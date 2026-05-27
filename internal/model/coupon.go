@@ -3,17 +3,17 @@ package model
 import "time"
 
 type Coupon struct {
-	ID              int64     `json:"id"`
-	Code            string    `json:"code"`
-	Name            string    `json:"name"`
-	DiscountType    string    `json:"discount_type"` // percentage | fixed
-	DiscountValue   float64   `json:"discount_value"`
-	MinOrderAmount  float64   `json:"min_order_amount"`
-	ValidFrom       time.Time `json:"valid_from"`
-	ValidUntil      time.Time `json:"valid_until"`
-	UsageLimit      *int      `json:"usage_limit"`
-	UsedCount       int       `json:"used_count"`
-	IsActive        bool      `json:"is_active"`
+	ID             int64     `json:"id"`
+	Code           string    `json:"code"`
+	Name           string    `json:"name"`
+	DiscountType   string    `json:"discount_type"` // percentage | fixed
+	DiscountValue  float64   `json:"discount_value"`
+	MinOrderAmount float64   `json:"min_order_amount"`
+	ValidFrom      time.Time `json:"valid_from"`
+	ValidUntil     time.Time `json:"valid_until"`
+	UsageLimit     *int      `json:"usage_limit"`
+	UsedCount      int       `json:"used_count"`
+	IsActive       bool      `json:"is_active"`
 }
 
 type CreateCouponRequest struct {
@@ -29,7 +29,7 @@ type CreateCouponRequest struct {
 
 type ValidateCouponRequest struct {
 	Code       string  `json:"code"        binding:"required"`
-	OrderTotal float64 `json:"order_total" binding:"required,min=0"`
+	OrderTotal float64 `json:"order_total" binding:"min=0"`
 }
 
 type ValidateCouponResponse struct {

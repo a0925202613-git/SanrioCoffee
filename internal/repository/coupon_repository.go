@@ -124,3 +124,41 @@ func scanCoupon(row pgx.Row) (*model.Coupon, error) {
 	}
 	return &c, err
 }
+
+func (r *CouponRepository) CheckUserCouponUsed(ctx context.Context, userID, couponID int64) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM user_coupons WHERE user_id = $1 AND coupon_id = $2)`
+	err := r.db.Pool.QueryRow(ctx, query, userID, couponID).Scan(&exists)
+	return exists, err
+}
+
+func (r *CouponRepository) ListAvailableCouponsForUser(ctx context.Context, userID int64) ([]model.Coupon, error) {
+	query := `
+		SELECT id, code, name, discount_type, discount_value, min_order_amount, valid_from, valid_until, usage_limit, used_count, is_active 
+		FROM coupons c
+		WHERE c.is_active = true 
+		  AND NOW() BETWEEN c.valid_from AND c.valid_until
+		  AND c.id NOT IN (
+		      SELECT coupon_id FROM user_coupons WHERE user_id = $1
+		  )
+		ORDER BY c.valid_until ASC;
+	`
+	rows, err := r.db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var coupons []model.Coupon
+	for rows.Next() {
+		var c model.Coupon
+		if err := rows.Scan(&c.ID, &c.Code, &c.Name, &c.DiscountType, &c.DiscountValue, &c.MinOrderAmount, &c.ValidFrom, &c.ValidUntil, &c.UsageLimit, &c.UsedCount, &c.IsActive); err != nil {
+			return nil, err
+		}
+		coupons = append(coupons, c)
+	}
+	if coupons == nil {
+		coupons = []model.Coupon{}
+	}
+	return coupons, rows.Err()
+}
