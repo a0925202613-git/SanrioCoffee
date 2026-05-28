@@ -79,7 +79,6 @@ func (r *ProductRepository) FindByID(ctx context.Context, id int64) (*model.Prod
 	var p model.Product
 	err := row.Scan(&p.ID, &p.CategoryID, &p.Name, &p.Description, &p.Price, &p.ImageURL, &p.IsAvailable, &p.CreatedAt)
 	if err != nil {
-		// 💡 不管是哪種 ErrNoRows，只要找不到，一律強迫回傳找不到，不給 handler 噴 500 的機會
 		if err == pgx.ErrNoRows || strings.Contains(err.Error(), "no rows") {
 			return nil, fmt.Errorf("notfound")
 		}
@@ -89,7 +88,6 @@ func (r *ProductRepository) FindByID(ctx context.Context, id int64) (*model.Prod
 }
 
 func (r *ProductRepository) Create(ctx context.Context, req *model.CreateProductRequest) (*model.Product, error) {
-	// 💡 RETURNING 也要加上 COALESCE 保護
 	row := r.db.Pool.QueryRow(ctx,
 		`INSERT INTO products (category_id, name, description, price, image_url) VALUES ($1,$2,$3,$4,$5)
          RETURNING id, category_id, name, COALESCE(description, '') AS description, price, COALESCE(image_url, '') AS image_url, is_available, created_at`,
@@ -118,7 +116,6 @@ func (r *ProductRepository) Update(ctx context.Context, id int64, req *model.Upd
 		existing.ImageURL = *req.ImageURL
 	}
 
-	// 💡 RETURNING 交易返回時加上 COALESCE 保護
 	row := r.db.Pool.QueryRow(ctx,
 		`UPDATE products SET category_id=$1, name=$2, description=$3, price=$4, image_url=$5 WHERE id=$6
          RETURNING id, category_id, name, COALESCE(description, '') AS description, price, COALESCE(image_url, '') AS image_url, is_available, created_at`,
@@ -127,7 +124,6 @@ func (r *ProductRepository) Update(ctx context.Context, id int64, req *model.Upd
 }
 
 func (r *ProductRepository) SetAvailability(ctx context.Context, id int64, available bool) (*model.Product, error) {
-	// 💡 RETURNING 加上 COALESCE 保護
 	row := r.db.Pool.QueryRow(ctx,
 		`UPDATE products SET is_available=$1 WHERE id=$2 
          RETURNING id, category_id, name, COALESCE(description, '') AS description, price, COALESCE(image_url, '') AS image_url, is_available, created_at`,
@@ -147,8 +143,6 @@ func (r *ProductRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *ProductRepository) ListCustomizations(ctx context.Context, productID int64) ([]model.ProductCustomization, error) {
-	// 🎯 修正核心：將 SELECT 裡的 $1 換成 pcg.product_id，讓 PostgreSQL 100% 確定它的型別就是 BIGINT
-	// 🎯 同時保持 JOIN 的聚焦，按鈕重複的問題與型別衝突一次完美解決！
 	query := `
 		SELECT 
 			i.id, 
@@ -279,7 +273,6 @@ func scanProduct(row pgx.Row) (*model.Product, error) {
 	var p model.Product
 	err := row.Scan(&p.ID, &p.CategoryID, &p.Name, &p.Description, &p.Price, &p.ImageURL, &p.IsAvailable, &p.CreatedAt)
 	if err != nil {
-		// 💡 關鍵校正：與上方的 FindByID 保持完全相同的錯誤標籤輸出，徹底消除變數未定義或比對失敗的風險
 		if err == pgx.ErrNoRows || strings.Contains(err.Error(), "no rows") {
 			return nil, fmt.Errorf("notfound")
 		}
