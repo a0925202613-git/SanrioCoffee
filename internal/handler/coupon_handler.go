@@ -115,7 +115,7 @@ func (h *CouponHandler) Delete(c *gin.Context) {
 }
 
 func (h *CouponHandler) GetMyCoupons(c *gin.Context) {
-	userIDVal, exists := c.Get("userId")
+	userIDVal, exists := c.Get("userID")
 	if !exists {
 		response.BadRequest(c, "user unauthorized")
 		return
