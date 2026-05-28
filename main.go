@@ -27,7 +27,7 @@ func main() {
 	if err := logger.Init(cfg.Server.Mode); err != nil {
 		log.Fatalf("failed to init logger: %v", err)
 	}
-	defer logger.Log.Sync() //nolint:errcheck
+	defer logger.Log.Sync()
 
 	db, err := database.NewDB(cfg.Database)
 	if err != nil {
@@ -35,7 +35,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// 1. 執行結構檔：蓋好空大樓（Table 與 Index）
 	if initSQL, err := os.ReadFile("migrations/init.sql"); err == nil {
 		log.Println("🏗️ 正在執行 migrations/init.sql 初始化資料庫結構...")
 		if _, err := db.Pool.Exec(context.Background(), string(initSQL)); err != nil {
@@ -45,7 +44,6 @@ func main() {
 		log.Printf("⚠️ 找不到 migrations/init.sql，請確認檔案路徑是否正確: %v", err)
 	}
 
-	// 2. 執行種子檔：自動把 17 筆精美按鈕與客製化限制搬進去
 	if seedSQL, err := os.ReadFile("migrations/seed.sql"); err == nil {
 		log.Println("🌱 偵測到 seed.sql，正在自動植入三麗鷗咖啡廳測試商品與客製化細項...")
 		if _, err := db.Pool.Exec(context.Background(), string(seedSQL)); err != nil {
