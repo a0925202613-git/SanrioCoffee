@@ -39,7 +39,7 @@ func (s *ProductService) List(ctx context.Context, categoryID int64, availableOn
 
 	if s.redisClient != nil {
 		if data, err := json.Marshal(products); err == nil {
-			s.redisClient.Set(ctx, cacheKey, data, 5*time.Minute) //nolint:errcheck
+			s.redisClient.Set(ctx, cacheKey, data, 5*time.Minute)
 		}
 	}
 	return products, nil
@@ -73,7 +73,7 @@ func (s *ProductService) GetByID(ctx context.Context, id int64) (*model.ProductW
 
 	if s.redisClient != nil {
 		if data, err := json.Marshal(result); err == nil {
-			s.redisClient.Set(ctx, cacheKey, data, 5*time.Minute) //nolint:errcheck
+			s.redisClient.Set(ctx, cacheKey, data, 5*time.Minute)
 		}
 	}
 	return result, nil
@@ -139,7 +139,7 @@ func (s *ProductService) invalidateProductCache(ctx context.Context, id int64) {
 	if s.redisClient == nil {
 		return
 	}
-	s.redisClient.Del(ctx, fmt.Sprintf("product:%d", id)) //nolint:errcheck
+	s.redisClient.Del(ctx, fmt.Sprintf("product:%d", id))
 	s.invalidateListCache(ctx)
 }
 
@@ -149,9 +149,9 @@ func (s *ProductService) invalidateListCache(ctx context.Context) {
 	}
 	keys, _ := s.redisClient.Keys(ctx, "products:list:*").Result()
 	if len(keys) > 0 {
-		s.redisClient.Del(ctx, keys...) //nolint:errcheck
+		s.redisClient.Del(ctx, keys...)
 	}
-} // 💡 這裡原本少了一個關閉的大括號
+}
 
 // AddCustomizationRestriction 負責設定黑名單限制，並在完成後清除 Redis 商品快取
 func (s *ProductService) AddCustomizationRestriction(ctx context.Context, productID, itemID int64, isDisabled bool) error {
@@ -194,7 +194,7 @@ func (s *ProductService) BindCustomizationGroup(ctx context.Context, productID, 
 	if err != nil {
 		return err
 	}
-	// 🧹 清除快取，讓前端下一秒拿到的選單立刻多出這個群組
+	// 清除快取，讓前端下一秒拿到的選單立刻多出這個群組
 	s.invalidateProductCache(ctx, productID)
 	return nil
 }
