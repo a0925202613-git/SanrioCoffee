@@ -58,7 +58,6 @@ func (h *ProductHandler) GetByID(c *gin.Context) {
 
 	product, err := h.svc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		// 💡 只要錯誤訊息包含 notfound，就直接安全降落 404，不准崩潰變 500
 		if strings.Contains(err.Error(), "notfound") {
 			response.NotFound(c, "product not found")
 			return
@@ -243,7 +242,7 @@ func (h *ProductHandler) Upload(c *gin.Context) {
 		return
 	}
 	defer out.Close()
-	io.Copy(out, file) //nolint:errcheck
+	io.Copy(out, file)
 
 	imageURL := fmt.Sprintf("/uploads/%s", filename)
 	c.JSON(http.StatusOK, gin.H{"url": imageURL})
